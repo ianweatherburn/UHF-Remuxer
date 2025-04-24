@@ -1,21 +1,22 @@
 # Remux Watcher
 
-A Docker-based application that monitors a folder for TS video files, remuxes them to MKV format, and updates a Plex media server.
+A Docker-based application that monitors a folder for .TS video files create by the UHF-Server, remuxes them to .MKV format with metadata, and updates a Plex media server.
 
 ## Features
 
-- Monitors a specified folder for TS files
-- Checks recording status in a database file rather than file size
-- Renames output files according to metadata from the database
-- Remuxes TS to MKV using ffmpeg
-- Updates Plex library after successful remuxing
+- Monitors a specified folder for .ts files, created by the UHF Server
+- Checks recording status from the UHF database
+- Renames output files according to metadata from the database (instead of the UHF UUID)
+- Remuxes TS to MKV using ffmpeg and embeds recording metadata
+- Updates a Plex library after successful remuxing
 - Maintains a database of processed files
 - Supports dry-run mode for testing
+- Specifies an interval to monitor the UHF server for completed recordings
 
 ## Setup
 
 1. Clone this repository
-2. Copy `.env.sample` to `.env` and edit with your configuration
+2. Copy `.env.sample` to `.env` and edit with your configuration. You must specify a PLEX_TOKEN to get Plex library updates.
 3. Build and run the Docker container:
 
 ```bash
@@ -28,17 +29,21 @@ The following environment variables can be configured in the `.env` file:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `WATCH_FOLDER` | Directory to monitor for TS files | Required |
-| `DESTINATION_FOLDER` | Directory to save MKV files | Required |
-| `DB_PATH` | Path to the database JSON file | Required |
-| `REMUX_PAUSE` | Seconds to wait between scans | 5 |
-| `MAX_JOBS` | Maximum concurrent remux jobs | 2 |
-| `TZ` | Timezone | Africa/Johannesburg |
-| `PUID` | User ID for file ownership | 1000 |
-| `PGID` | Group ID for file ownership | 1000 |
+| `WATCH_FOLDER` | Directory to monitor for TS files where UHF server saves recordings | Required |
+| `DESTINATION_FOLDER` | Directory to save MKV files where Plex will pick up the remux | Required |
+| `REMUX_FILE` | The database of completed remuxes stored in the DESTINATION_FOLDER | Optional (.remux.json) |
+| `DB_PATH` | Path to the UHF server database | Required |
+| `DB_FILE` | Filename of the UHF server database | Optional (db.json)|
+| `INTERVAL` | The interval at which scans are run | Optional (5) |
+| `MAX_JOBS` | Maximum concurrent ffmpeg remux jobs | Optional (2) |
+| `TZ` | Timezone used for UTC conversions | Required |
+| `PUID` | User ID for file ownership | Required |
+| `PGID` | Group ID for file ownership | Required |
 | `PLEX_URL` | Plex server URL | Optional |
 | `PLEX_TOKEN` | Plex authentication token | Optional |
 | `PLEX_LIBRARY` | Plex library name to update | Optional |
+| `PLEX_SCAN_COUNT` | Iterations to wait until Plex library scanning is complete | Optional (30) |
+| `PLEX_FOLDER` | The Plex library folder where remuxes are stored (NOTE: This is relative to Plex if running on a different server) | Optional |
 
 ## Usage
 
@@ -61,12 +66,13 @@ docker-compose run --rm remuxer python -m remux_watcher --debug
 ## How It Works
 
 1. The application monitors the `WATCH_FOLDER` for `.ts` files
-2. For each file, it checks the database at `DB_PATH` to see if the recording is complete
+2. For each file, it checks the UHF database at `DB_PATH` to see if the recording is complete
 3. If the recording is complete and hasn't been processed before, it:
    - Creates a new filename based on metadata in the database
-   - Remuxes the file to MKV format using ffmpeg
+   - Remuxes the file to MKV format using ffmpeg and embeds metadata
    - Moves the file to the `DESTINATION_FOLDER`
    - Updates the Plex library (if configured)
+   - Adds metadata to the Plex library item
    - Updates its internal database to track processed files
 
 ## Development
