@@ -24,5 +24,3 @@ services:
       - ${WATCH_FOLDER}:/recordings
       - ${DESTINATION_FOLDER}:/remux
       - ${DB_PATH}:/data
-      - /media:/media
-      - /mnt:/mnt
