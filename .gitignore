@@ -1,6 +1,8 @@
 # Ignore all .env and .conf files
 *.env
 *.conf
+._*
+.DS_Store
 
 # But allow example and sample versions
 !*.env.example

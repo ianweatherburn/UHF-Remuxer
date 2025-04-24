@@ -200,6 +200,7 @@ class PlexManager:
             # Get metadata values
             name = recording_info.get("name", "")
             original_file = Path(recording_info.get("file_path", "")).name
+            studio = recording_info.get("description", "")
             
             # Parse the start time
             start_time_str = recording_info.get("start_time", "")
@@ -227,10 +228,12 @@ class PlexManager:
                 "title.value": name,
                 "titleSort.value": f"{sort_date}_{name}",
                 "originalTitle.value": original_file,
+                "studio": studio,
                 # Optionally lock fields to prevent manual changes
                 "title.locked": "1",
                 "titleSort.locked": "1",
                 "originalTitle.locked": "1",
+                "studio.locked": "1"
             }
             
             # Add originally available date if we have it
