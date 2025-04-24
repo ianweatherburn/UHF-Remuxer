@@ -1,0 +1,9 @@
+# Ignore all .env and .conf files
+*.env
+*.conf
+
+# But allow example and sample versions
+!*.env.example
+!*.env.sample
+!*.conf.example
+!*.conf.sample

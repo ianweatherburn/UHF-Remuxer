@@ -1,0 +1,28 @@
+services:
+  remuxer:
+    build: .
+    container_name: remux-watcher
+    env_file:
+      - .env
+    environment:
+      - WATCH_FOLDER
+      - DESTINATION_FOLDER
+      - INTERVAL
+      - MAX_JOBS
+      - TZ
+      - PUID
+      - PGID
+      - PLEX_URL
+      - PLEX_TOKEN
+      - PLEX_LIBRARY
+      - PLEX_SCAN_COUNT
+      - PLEX_FOLDER
+      - DB_PATH
+      - REMUX_FILE
+      - DB_FILE
+    volumes:
+      - ${WATCH_FOLDER}:/recordings
+      - ${DESTINATION_FOLDER}:/remux
+      - ${DB_PATH}:/data
+      - /media:/media
+      - /mnt:/mnt
