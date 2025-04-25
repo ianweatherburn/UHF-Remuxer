@@ -1,11 +1,12 @@
 import logging
 import time
+import math
 from pathlib import Path
 from urllib.parse import quote
 from typing import Dict, Optional
 import aiohttp
-from datetime import datetime
-from typing import Dict, Optional
+from datetime import datetime, timedelta
+from textwrap import dedent
 import asyncio
 
 from remux_watcher.database import PlexUpdateStatus
@@ -30,13 +31,41 @@ class PlexManager:
             if self.dry_run:
                 logger.info(f"[DRY RUN] Would update Plex library for {file_path.name}")
                 return True
+
+            # Get the job data from the database
+            from remux_watcher.database import DatabaseManager
+            jobs_table = DatabaseManager(self.config).app_db.table("remux_jobs")
+            job_data = jobs_table.get(doc_id=job_id) 
+
+            # Do a threshold check on the recording duration vs. the broadcast duration
+            # Skip the Plex update, if the time-difference is below the threshold %
+            # If INCLUDE_CANCELLED then ignore any threshold check, as cancelled recordings will most likely always be below threshold
+            threshold_percentage = self.config.threshold
+            recording_duration_seconds = job_data.get("recording_duration", 0)
+            remux_duration_seconds = job_data.get("remux_duration", 0)
+            calculated_threshold = remux_duration_seconds / recording_duration_seconds * 100
+
+            if not self.config.include_cancelled and calculated_threshold < threshold_percentage:
+                error = (
+                    f"Plex Update Skipped. Recording duration failed threshold check of '{threshold_percentage}%'. "
+                    f"Recording-Duration: '{recording_duration_seconds}s'. "
+                    f"Remux-Duration: '{remux_duration_seconds}s'. "
+                    f"Calculated Threshold: '{calculated_threshold:.2f}%'"
+                )
+                DatabaseManager(self.config).update_plex_status(
+                    job_id, 
+                    PlexUpdateStatus.SKIPPED,
+                    error=f"{error}"
+                )
+                logger.info(f"{error}")
+                return False
                 
             # Get library section ID if not already cached
             if self.library_section_id is None:
                 self.library_section_id = await self._get_library_section_id()
                 if self.library_section_id is None:
                     logger.error(f"Failed to find Plex library: {self.library_name}")
-                    from remux_watcher.database import DatabaseManager
+                    # from remux_watcher.database import DatabaseManager
                     DatabaseManager(self.config).update_plex_status(
                         job_id, 
                         PlexUpdateStatus.FAILED,
@@ -54,10 +83,11 @@ class PlexManager:
             
             if result:
                 # Wait a bit for Plex to process the file
-                await asyncio.sleep(3)
-                
+                await asyncio.sleep(5)
+                # scanning = await self._wait_for_plex_not_scanning()
+
                 # Update metadata for the newly added item
-                metadata_result = await self._update_item_metadata(file_path, plex_folder, recording_info)
+                metadata_result = await self._update_item_metadata(file_path, plex_folder, recording_info, job_data)
                 if not metadata_result:
                     logger.warning(f"Failed to update metadata for {file_path.name}")
             
@@ -188,7 +218,7 @@ class PlexManager:
             logger.exception(f"Error refreshing Plex library: {e}")
             return False
     
-    async def _update_item_metadata(self, file_path: Path, plex_folder: Path, recording_info: Dict) -> bool:
+    async def _update_item_metadata(self, file_path: Path, plex_folder: Path, recording_info: Dict, job_data: Dict) -> bool:
         """Update metadata for a Plex item."""
         try:
             # Find the item in Plex
@@ -198,49 +228,85 @@ class PlexManager:
                 return False
             
             # Get metadata values
-            name = recording_info.get("name", "")
+            name = job_data.get("recording_name", "Unknown")
             original_file = Path(recording_info.get("file_path", "")).name
-            studio = recording_info.get("description", "")
+            studio = job_data.get("recording_description", "Unknown")
             
             # Parse the start time
             start_time_str = recording_info.get("start_time", "")
+            duration_seconds = int(job_data.get("recording_duration", 0))
+            remux_duration_seconds = int(job_data.get("remux_duration", 0))
+            duration_minutes = math.ceil(duration_seconds / 60)
+            remux_duration_minutes = math.ceil(remux_duration_seconds / 60)
+
+            # logger.info(f"Plex Metadata - Name: '{name}'")
+            # logger.info(f"Plex Metadata - Original File: '{original_file}'")
+            # logger.info(f"Plex Metadata - Studio: '{studio}'")
+            # logger.info(f"Plex Metadata - Recording Duration: '{duration_seconds}'")
+            # logger.info(f"Plex Metadata - Recording Duration (Minutes): '{duration_minutes}'")
+            # logger.info(f"Plex Metadata - Remux Duration: '{remux_duration_seconds}'")
+            # logger.info(f"Plex Metadata - Remux Duration (Minutes): '{remux_duration_minutes}'")
+
             try:
                 if start_time_str:
                     if '+' in start_time_str:
                         start_time = datetime.fromisoformat(start_time_str)
                     else:
                         start_time = datetime.fromisoformat(start_time_str.replace('Z', '+00:00'))
+
+                    # Calculate end time and format it
+                    end_time = start_time + timedelta(seconds=duration_seconds)
                     
                     # Format date and time for sort_title
-                    sort_date = start_time.strftime("%Y%m%d%H%M%S")
+                    sort_date = start_time.strftime("%Y-%m-%d %H:%M:%S")
                     available_date = start_time.strftime("%Y-%m-%d")
+
+                    # Format times for summary
+                    start_time_formatted = start_time.strftime("%Y-%m-%d %H:%M")
+                    end_time_formatted = end_time.strftime("%Y-%m-%d %H:%M")
                 else:
-                    sort_date = "Unknown Date"
+                    sort_date = "Unknown"
                     available_date = None
+                    start_time_formatted = "Unknown"
+                    end_time_formatted = "Unknown"
             except ValueError:
                 logger.warning(f"Invalid date format in recording: {start_time_str}")
-                sort_date = "Unknown Date"
+                sort_date = "Unknown"
                 available_date = None
+                start_time_formatted = "Unknown"
+                end_time_formatted = "Unknown"
+
+            from textwrap import dedent
+            summary = dedent(f"""\
+                        {name}
+                        {studio}
+                        {start_time_formatted} - {end_time_formatted}
+                        Broadcast: {duration_minutes} minutes
+                        Recording: {remux_duration_minutes} minutes
+                        Source: UHF-Server (https://www.uhfapp.com/)
+                      """)
             
             params = {
                 "X-Plex-Token": self.token,
                 "type": "1",  # Type for videos
                 "title.value": name,
-                "titleSort.value": f"{sort_date}_{name}",
+                "titleSort.value": f"{sort_date} - {name}",
                 "originalTitle.value": original_file,
                 "studio": studio,
+                "summary": summary,
                 # Optionally lock fields to prevent manual changes
                 "title.locked": "1",
                 "titleSort.locked": "1",
                 "originalTitle.locked": "1",
-                "studio.locked": "1"
+                "studio.locked": "1",
+                "summary.locked": "1"
             }
             
             # Add originally available date if we have it
             if available_date:
                 params["originallyAvailableAt.value"] = available_date
                 params["originallyAvailableAt.locked"] = "1"
-            
+
             # Update the metadata
             url = f"{self.base_url}/library/metadata/{item_id}"
             async with aiohttp.ClientSession() as session:
@@ -287,10 +353,11 @@ class PlexManager:
                             part = media.find("./Part")
                             if part is not None:
                                 part_file = part.get("file")
+                                # logger.info(f"IW! Checking Plex '{part_file}' against '{full_path}'")
                                 if part_file and Path(part_file) == full_path:
                                     return video.get("ratingKey")
                     
-                    logger.warning(f"No matching Plex item found for {file_path}")
+                    logger.warning(f"No matching Plex item found for {full_path}")
                     return None
         except Exception as e:
             logger.exception(f"Error finding Plex item: {e}")

@@ -111,22 +111,27 @@ class FileMonitor:
             logger.warning(f"No recording info found for {file_path.name}")
             return
             
+        # Check if we are including cancelled recordings
+        # logger.info(f"IAN: Include Cancelled? {self.config.include_cancelled}  Recording Cancelled? {self.db_manager.is_recording_cancelled(recording_info)}")
+        # logger.info(f"If we are not including cancelled AND this recording is cancelled we should see a SKIP message?")
+        if not self.config.include_cancelled and self.db_manager.is_recording_cancelled(recording_info):
+            logger.info(f"Skipping cancelled recordings as requested: {file_path.name}")
+            return
+
         # Check if recording is complete
-        if not self.db_manager.is_recording_complete(recording_info):
+        if self.db_manager.is_recording(recording_info):
             logger.info(f"Skipping active recording: {file_path.name}")
             return
-            
-        # Get formatted output path
-        logger.warning(f"PLEX Folder from CONFIG: '{self.config.plex_folder}'")
 
+        # Get formatted output path
         folder_name, output_filename = self._format_output_path(recording_info)
         output_folder = self.config.destination_folder / folder_name
         output_path = output_folder / output_filename
         relative_output = output_folder.relative_to(self.config.destination_folder)
         plex_folder = self.config.plex_folder / relative_output        
 
-        logger.info(f"Output Path: {output_path}")
-        logger.info(f"Plex Folder: {plex_folder}")
+        # logger.info(f"Output Path: {output_path}")
+        # logger.info(f"Plex Folder: {plex_folder}")
         
         # Create folder if it doesn't exist
         output_folder.mkdir(exist_ok=True, parents=True)

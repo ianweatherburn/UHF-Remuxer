@@ -21,6 +21,8 @@ class Config:
     plex_folder: str
     remux_file: str
     db_file: str
+    threshold: int
+    include_cancelled: bool
     
 def load_config() -> Config:
     """Load configuration from environment variables."""
@@ -51,7 +53,9 @@ def load_config() -> Config:
         plex_scan_count=int(os.environ.get("PLEX_SCAN_COUNT", "30")),
         plex_folder=Path(os.environ.get("PLEX_FOLDER", "/media/videos/uhf-server")),
         remux_file=os.environ.get("REMUX_FILE", "remux.json"),
-        db_file=os.environ.get("DB_FILE", "db.json")
+        db_file=os.environ.get("DB_FILE", "db.json"),
+        threshold=int(os.environ.get("THRESHOLD", "30")),
+        include_cancelled=str_to_bool(os.environ.get("INCLUDE_CANCELLED", "true"))
     )
 
     # Validate paths
@@ -74,3 +78,6 @@ def load_config() -> Config:
     #     logger.info(f"Plex Folder '{config.plex_folder}' exists")
     
     return config
+
+def str_to_bool(value: str) -> bool:
+    return str(value).lower() in ("true", "1", "yes", "y")    

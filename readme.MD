@@ -35,6 +35,8 @@ The following environment variables can be configured in the `.env` file:
 | `DB_PATH` | Path to the UHF server database | Required |
 | `DB_FILE` | Filename of the UHF server database | Optional (db.json)|
 | `INTERVAL` | The interval at which scans are run | Optional (5) |
+| `INCLUDE_CANCELLED` | Remux recordings that were cancelled on UHF-Server | Optional (True) |
+| `THRESHOLD` | Exclude remuxes that do not match the requested recording time by the threshold percentage | Optional (0) |
 | `MAX_JOBS` | Maximum concurrent ffmpeg remux jobs | Optional (2) |
 | `TZ` | Timezone used for UTC conversions | Required |
 | `PUID` | User ID for file ownership | Required |
@@ -66,14 +68,17 @@ docker-compose run --rm remuxer python -m remux_watcher --debug
 ## How It Works
 
 1. The application monitors the `WATCH_FOLDER` for `.ts` files
-2. For each file, it checks the UHF database at `DB_PATH` to see if the recording is complete
+2. For each file, it checks the UHF database at `DB_PATH` to see if the recording is complete, and hasn't failed
 3. If the recording is complete and hasn't been processed before, it:
+   - Ignore the recording if it was cancelled on the UHF-Server, and INCLUDE_CANCELLED=false
    - Creates a new filename based on metadata in the database
    - Remuxes the file to MKV format using ffmpeg and embeds metadata
+   - Ignore the file if it does not meet the recording duration threshold (ie the difference in recording duration between that requested on the UHF-Server and the Remux file is below the %)
    - Moves the file to the `DESTINATION_FOLDER`
    - Updates the Plex library (if configured)
    - Adds metadata to the Plex library item
    - Updates its internal database to track processed files
+4. Duration THRESHOLD check is ignored, if the recording was cancelled and INCLUDE_CANCELLED=true, to allow for adhoc recordings
 
 ## Development
 

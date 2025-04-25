@@ -20,6 +20,8 @@ services:
       - DB_PATH
       - REMUX_FILE
       - DB_FILE
+      - INCLUDE_CANCELLED
+      - THRESHOLD
     volumes:
       - ${WATCH_FOLDER}:/recordings
       - ${DESTINATION_FOLDER}:/remux

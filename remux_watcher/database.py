@@ -63,7 +63,7 @@ class DatabaseManager:
         await self._refresh_recordings_cache_if_needed()
         
         for recording_id, recording in self.recordings_cache.get("recordings", {}).items():
-            if recording.get("file_path") == file_path:
+            if recording.get("file_path") == file_path and recording.get("error") is None:
                 return recording
         
         return None
@@ -91,11 +91,16 @@ class DatabaseManager:
             logger.error(f"Error reading recordings database: {e}")
             self.recordings_cache = {}
     
-    def is_recording_complete(self, recording_info: Dict) -> bool:
+    def is_recording(self, recording_info: Dict) -> bool:
         """Check if a recording is complete based on its status."""
         status = recording_info.get("status", "").lower()
-        return status != "recording"
-    
+        return status == "recording"
+
+    def is_recording_cancelled(self, recording_info: Dict) -> bool:
+        """Check if a recording is cancelled based on its status."""
+        status = recording_info.get("status", "").lower()
+        return status != "cancelled"
+
     def add_remux_job(self, 
                       original_path: str, 
                       output_path: str, 
@@ -116,16 +121,18 @@ class DatabaseManager:
             "output_path": output_path,
             "recording_name": recording_info.get("name", ""),
             "recording_description": recording_info.get("description", ""),
+            "recording_duration": recording_info.get("duration_seconds", 0),
             "created_at": recording_info.get("created_at", ""),
             "remux_status": RemuxStatus.PENDING.value,
             "remux_started_at": None,
             "remux_completed_at": None,
+            "remux_duration": 0,
             "plex_update_status": PlexUpdateStatus.PENDING.value,
             "plex_update_completed_at": None,
             "error": None
         })
         
-        logger.info(f"Created new remux job {job_id} for {original_path}")
+        # logger.info(f"Created new remux job {job_id} for {original_path}")
         return job_id
     
     def update_remux_status(self, job_id: int, status: RemuxStatus, error: str = None) -> None:
@@ -144,6 +151,14 @@ class DatabaseManager:
             
         jobs.update(update_data, doc_ids=[job_id])
         logger.debug(f"Updated job {job_id} remux status to {status.value}")
+
+    def update_remux_duration(self, job_id: int, duration: float) -> None:
+        """Update the remux duration for a job."""
+        jobs = self.app_db.table("remux_jobs")
+        
+        update_data = {"remux_duration": duration}
+        jobs.update(update_data, doc_ids=[job_id])
+        logger.debug(f"Updated job {job_id} remux duration to {duration} seconds")        
     
     def update_plex_status(self, job_id: int, status: PlexUpdateStatus, error: str = None) -> None:
         """Update the Plex update status for a job."""
