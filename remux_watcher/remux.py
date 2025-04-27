@@ -137,10 +137,11 @@ class RemuxManager:
                     'metadata:g:1': f"publisher={description}",
                     'metadata:g:2': "genre=TV-Show",
                     'metadata:g:3': f"description={description}-{name}",
-                    'metadata:g:4': "language=eng",
+                    'metadata:g:4': "language={self.config.language}",
                     'metadata:g:5': f"creation_time={start_time_str}",
                     'metadata:g:6': f"encoded_date={datetime.now().isoformat()}",
-                    'metadata:g:7': f"comment={comment}"
+                    'metadata:g:7': f"comment={comment}",
+                    'metadata:s:a:0': f"language={self.config.language}"  
                 }
             )
 

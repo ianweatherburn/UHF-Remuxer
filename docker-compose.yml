@@ -22,6 +22,7 @@ services:
       - DB_FILE
       - INCLUDE_CANCELLED
       - THRESHOLD
+      - LANGUAGE
     volumes:
       - ${WATCH_FOLDER}:/recordings
       - ${DESTINATION_FOLDER}:/remux

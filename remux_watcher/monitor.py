@@ -84,11 +84,11 @@ class FileMonitor:
                 await asyncio.sleep(1)
     
     def _find_ts_files(self) -> List[Path]:
-        """Find all TS files in the watch folder."""
+        """Find all TS files in the watch folder, ignoring files that start with '.'."""
         results = []
         try:
             for entry in self.config.watch_folder.glob("*.ts"):
-                if entry.is_file():
+                if entry.is_file() and not entry.name.startswith('.'):
                     results.append(entry)
         except Exception as e:
             logger.error(f"Error scanning watch folder: {e}")
@@ -201,15 +201,18 @@ class FileMonitor:
         return name
 
     def _format_output_path(self, recording_info: Dict) -> tuple:
-        """Format output folder and filename based on recording info."""
-        # Get name for folder
+        """Format output folder and filename based on recording info, ensuring max filename length."""
+        MAX_FILENAME_LENGTH = 254
+        EXTENSION = ".mkv"
+
+        # Get name for folder and file
         folder_name = self._clean_filename(recording_info.get("description", "Unknown"))
         file_name = self._clean_filename(recording_info.get("name", "Unknown"))
         
         # Parse start time
         start_time_str = recording_info.get("start_time", "")
         duration_seconds = int(recording_info.get("duration_seconds", 0))
-        
+
         try:
             if start_time_str:
                 # Parse start time and adjust for timezone
@@ -217,22 +220,29 @@ class FileMonitor:
                     start_time = datetime.fromisoformat(start_time_str)
                 else:
                     start_time = datetime.fromisoformat(start_time_str.replace('Z', '+00:00'))
-                
+
                 # Calculate end time
                 end_time = start_time + timedelta(seconds=duration_seconds)
-                
-                # Format date and times for filename
-                date_formatted = start_time.strftime("%Y-%m-%d")
-                start_time_formatted = start_time.strftime("%H:%M")
-                end_time_formatted = end_time.strftime("%H:%M")
-                
-                # Construct filename
-                filename = f"{file_name}_{date_formatted}_{start_time_formatted}-{end_time_formatted}.mkv"
+
+                # Format date and times for filename (no hyphens, no colons)
+                date_formatted = start_time.strftime("%Y%m%d")
+                start_time_formatted = start_time.strftime("%H%M%S")
+                end_time_formatted = end_time.strftime("%H%M%S")
+
+                # Create suffix
+                suffix = f"_{date_formatted}_{start_time_formatted}_{end_time_formatted}{EXTENSION}"
             else:
-                # Fallback if no valid start time
-                filename = f"{file_name}_unknown_time.mkv"
+                suffix = "_unknown_time" + EXTENSION
         except ValueError:
             logger.warning(f"Invalid date format in recording: {start_time_str}")
-            filename = f"{file_name}_invalid_time.mkv"
-        
-        return folder_name, filename        
+            suffix = "_invalid_time" + EXTENSION
+
+        # Truncate file_name if necessary
+        max_file_name_length = MAX_FILENAME_LENGTH - len(suffix)
+        if len(file_name) > max_file_name_length:
+            file_name = file_name[:max_file_name_length]
+
+        # Final filename
+        filename = f"{file_name}{suffix}"
+
+        return folder_name, filename

@@ -8,7 +8,7 @@ A Docker-based application that monitors a folder for .TS video files create by 
 - Checks recording status from the UHF database
 - Renames output files according to metadata from the database (instead of the UHF UUID)
 - Remuxes TS to MKV using ffmpeg and embeds recording metadata
-- Updates a Plex library after successful remuxing
+- Updates a Plex library after successful remuxing with added metadata
 - Maintains a database of processed files
 - Supports dry-run mode for testing
 - Specifies an interval to monitor the UHF server for completed recordings
@@ -38,6 +38,7 @@ The following environment variables can be configured in the `.env` file:
 | `INCLUDE_CANCELLED` | Remux recordings that were cancelled on UHF-Server | Optional (True) |
 | `THRESHOLD` | Exclude remuxes that do not match the requested recording time by the threshold percentage | Optional (0) |
 | `MAX_JOBS` | Maximum concurrent ffmpeg remux jobs | Optional (2) |
+| `LANGUAGE` | A valid ISO-639-2 language code to apply to the stream | Optional (eng) |
 | `TZ` | Timezone used for UTC conversions | Required |
 | `PUID` | User ID for file ownership | Required |
 | `PGID` | Group ID for file ownership | Required |
@@ -72,7 +73,7 @@ docker-compose run --rm remuxer python -m remux_watcher --debug
 3. If the recording is complete and hasn't been processed before, it:
    - Ignore the recording if it was cancelled on the UHF-Server, and INCLUDE_CANCELLED=false
    - Creates a new filename based on metadata in the database
-   - Remuxes the file to MKV format using ffmpeg and embeds metadata
+   - Remuxes the file to MKV format using ffmpeg and embeds metadata (note that the audio language may not be correct. UHF does not provide that info)
    - Ignore the file if it does not meet the recording duration threshold (ie the difference in recording duration between that requested on the UHF-Server and the Remux file is below the %)
    - Moves the file to the `DESTINATION_FOLDER`
    - Updates the Plex library (if configured)
