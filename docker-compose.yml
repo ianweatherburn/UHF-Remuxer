@@ -26,4 +26,4 @@ services:
     volumes:
       - ${WATCH_FOLDER}:/recordings
       - ${DESTINATION_FOLDER}:/remux
-      - ${DB_PATH}:/data
+      - ${DB_PATH}:/data:ro

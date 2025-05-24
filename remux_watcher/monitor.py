@@ -108,7 +108,7 @@ class FileMonitor:
         recording_info = await self.db_manager.get_recording_info(str(file_path))
         
         if not recording_info:
-            logger.warning(f"No recording info found for {file_path.name}")
+            logger.warning(f"No recording info found for '{file_path.name}'")
             return
             
         # Check if we are including cancelled recordings

@@ -62,8 +62,18 @@ class DatabaseManager:
         """Get recording info from db.json for the given file path."""
         await self._refresh_recordings_cache_if_needed()
         
+        # Extract just the filename from the input path
+        input_filename = os.path.basename(file_path)        
+
         for recording_id, recording in self.recordings_cache.get("recordings", {}).items():
-            if recording.get("file_path") == file_path and recording.get("error") is None:
+            recording_path = recording.get("file_path")
+            if recording_path is None:
+                continue            
+
+            # Extract just the filename from the stored path
+            recording_filename = os.path.basename(recording_path)            
+
+            if recording_filename == input_filename and recording.get("error") is None:
                 return recording
         
         return None
