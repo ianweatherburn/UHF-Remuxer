@@ -4,10 +4,10 @@ A Docker-based application that monitors a folder for .TS video files create by 
 
 ## Features
 
-- Monitors a specified folder for .ts files, created by the UHF Server
+- Monitors a specified folder for various media files, created by the UHF Server
 - Checks recording status from the UHF database
 - Renames output files according to metadata from the database (instead of the UHF UUID)
-- Remuxes TS to MKV using ffmpeg and embeds recording metadata
+- Remuxes the media file to MKV using ffmpeg and embeds recording metadata
 - Updates a Plex library after successful remuxing with added metadata
 - Maintains a database of processed files
 - Supports dry-run mode for testing
@@ -29,7 +29,8 @@ The following environment variables can be configured in the `.env` file:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `WATCH_FOLDER` | Directory to monitor for TS files where UHF server saves recordings | Required |
+| `WATCH_FOLDER` | Directory to monitor for media files where UHF server saves recordings | Required |
+| `WATCH_FILES` | File extensions to monitor for remuxing (comma-separatated, such as .ts,.m2t) | Optional (.ts) |
 | `DESTINATION_FOLDER` | Directory to save MKV files where Plex will pick up the remux | Required |
 | `REMUX_FILE` | The database of completed remuxes stored in the DESTINATION_FOLDER | Optional (.remux.json) |
 | `DB_PATH` | Path to the UHF server database | Required |
@@ -68,7 +69,7 @@ docker-compose run --rm remuxer python -m remux_watcher --debug
 
 ## How It Works
 
-1. The application monitors the `WATCH_FOLDER` for `.ts` files
+1. The application monitors the `WATCH_FOLDER` for the specified media files
 2. For each file, it checks the UHF database at `DB_PATH` to see if the recording is complete, and hasn't failed
 3. If the recording is complete and hasn't been processed before, it:
    - Ignore the recording if it was cancelled on the UHF-Server, and INCLUDE_CANCELLED=false

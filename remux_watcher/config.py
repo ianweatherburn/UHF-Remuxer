@@ -24,6 +24,7 @@ class Config:
     threshold: int
     include_cancelled: bool
     language: str
+    watch_files: List[str]
     
 def load_config() -> Config:
     """Load configuration from environment variables."""
@@ -48,6 +49,7 @@ def load_config() -> Config:
         max_jobs=int(os.environ.get("MAX_JOBS", "2")),
         puid=int(os.environ.get("PUID", "1000")),
         pgid=int(os.environ.get("PGID", "1000")),
+        watch_files=[ext.strip() for ext in os.environ.get("WATCH_FILES", ".ts").split(",")],
         plex_url=os.environ.get("PLEX_URL", ""),
         plex_token=os.environ.get("PLEX_TOKEN", ""),
         plex_library=os.environ.get("PLEX_LIBRARY", ""),

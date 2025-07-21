@@ -63,9 +63,9 @@ class FileMonitor:
                 if interval in valid_intervals and current_minute % interval == 0:
                     logger.info(f"Checking for files at interval {interval} (minute: {current_minute})")
                     
-                    # Find all TS files in the watch folder
-                    ts_files = self._find_ts_files()
-                    logger.debug(f"Found {len(ts_files)} TS files in watch folder")
+                    # Find all files with specified extensions in the watch folder
+                    files = self._find_files()
+                    logger.debug(f"Found {len(files)} files in watch folder")
                     
                     # Process each file
                     tasks = []
@@ -83,20 +83,25 @@ class FileMonitor:
                 logger.exception(f"Error monitoring files: {e}")
                 await asyncio.sleep(1)
     
-    def _find_ts_files(self) -> List[Path]:
-        """Find all TS files in the watch folder, ignoring files that start with '.'."""
+    def _find_files(self) -> List[Path]:
+        """Find all files with specified extensions in the watch folder, ignoring files that start with '.'."""
         results = []
         try:
-            for entry in self.config.watch_folder.glob("*.ts"):
-                if entry.is_file() and not entry.name.startswith('.'):
-                    results.append(entry)
+            # Create patterns for each file extension (e.g., '*.ts', '*.m2t')
+            patterns = [f"*{ext}" for ext in self.config.watch_files]
+            
+            # Search for files matching any of the patterns
+            for pattern in patterns:
+                for entry in self.config.watch_folder.glob(pattern):
+                    if entry.is_file() and not entry.name.startswith('.'):
+                        results.append(entry)
         except Exception as e:
             logger.error(f"Error scanning watch folder: {e}")
         
         return results
     
     async def _process_file(self, file_path: Path) -> None:
-        """Process a TS file."""
+        """Process a file with supported extension."""
         # Skip if already processed
         if self.db_manager.is_file_processed(str(file_path)):
             logger.debug(f"Skipping already processed file: {file_path.name}")

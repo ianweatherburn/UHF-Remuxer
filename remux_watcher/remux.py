@@ -125,13 +125,20 @@ class RemuxManager:
                 "Source: UHF-Server (https://www.uhfapp.com/)"
             ]).replace('"', "'")  # Replace double quotes with single quotes
 
-            # Build FFmpeg command using the more reliable .global_args() approach
+            # Create temporary file path (using MP4 format)
+            temp_path = output_path.with_suffix('.temp.mp4')
+            
+            # First pass: Create a temporary file with fixed timestamps
             stream = ffmpeg.input(str(input_path))
+            # Get the event loop
+            loop = asyncio.get_event_loop()
+
             stream = ffmpeg.output(
                 stream,
-                str(output_path),
+                str(temp_path),
                 c="copy",
                 y=None,
+                movflags="+faststart",
                 **{
                     'metadata:g:0': f"title={name}",
                     'metadata:g:1': f"publisher={description}",
@@ -141,28 +148,104 @@ class RemuxManager:
                     'metadata:g:5': f"creation_time={start_time_str}",
                     'metadata:g:6': f"encoded_date={datetime.now().isoformat()}",
                     'metadata:g:7': f"comment={comment}",
-                    'metadata:s:a:0': f"language={self.config.language}"  
+                    'metadata:s:a:0': f"language={self.config.language}"
                 }
             )
 
-            # Run FFmpeg in an executor to handle synchronous call
-            loop = asyncio.get_event_loop()
-            try:
-                await loop.run_in_executor(
-                    None,
-                    lambda: ffmpeg.run(
-                        stream,
-                        capture_stdout=True,
-                        capture_stderr=True,
-                        quiet=True
-                    )
+            # Add global args for better timestamp handling
+            stream = stream.global_args(
+                '-use_wallclock_as_timestamps', '1',
+                '-copyts',
+                '-vsync', 'drop'
+            )
+
+            # Run first pass
+            await loop.run_in_executor(
+                None,
+                lambda: ffmpeg.run(
+                    stream,
+                    capture_stdout=True,
+                    capture_stderr=True,
+                    quiet=True
                 )
-                return True
-            except ffmpeg.Error as e:
-                logger.error(f"FFmpeg error: {e.stderr.decode() if e.stderr else str(e)}")
-                return False
+            )
+
+            # Prepare for second pass
+            metadata = {
+                'metadata:g:0': f"title={name}",
+                'metadata:g:1': f"publisher={description}",
+                'metadata:g:2': "genre=TV-Show",
+                'metadata:g:3': f"description={description}-{name}",
+                'metadata:g:4': "language={self.config.language}",
+                'metadata:g:5': f"creation_time={start_time_str}",
+                'metadata:g:6': f"encoded_date={datetime.now().isoformat()}",
+                'metadata:g:7': f"comment={comment}",
+                'metadata:s:a:0': f"language={self.config.language}"
+            }
+
+            # Second pass: Remux from temporary file to final output
+            stream = ffmpeg.input(str(temp_path))
+            stream = ffmpeg.output(
+                stream,
+                str(output_path),
+                c="copy",
+                y=None,
+                **metadata
+            )
+
+            # Run second pass
+            await loop.run_in_executor(
+                None,
+                lambda: ffmpeg.run(
+                    stream,
+                    capture_stdout=True,
+                    capture_stderr=True,
+                    quiet=True
+                )
+            )
+
+            # Cleanup temp file
+            temp_path.unlink()
+
+            return True
+
+            # Run second pass
+            stream = ffmpeg.input(str(temp_path))
+            stream = ffmpeg.output(
+                stream,
+                str(output_path),
+                c="copy",
+                y=None,
+                **metadata
+            )
+
+            # Run second pass
+            await loop.run_in_executor(
+                None,
+                lambda: ffmpeg.run(
+                    stream,
+                    capture_stdout=True,
+                    capture_stderr=True,
+                    quiet=True
+                )
+            )
+
+            # Cleanup temp file
+            temp_path.unlink()
+
+            return True
+
+        except ffmpeg.Error as e:
+            # Cleanup temp file if it exists
+            if temp_path.exists():
+                temp_path.unlink()
+            logger.error(f"FFmpeg error: {e.stderr.decode() if e.stderr else str(e)}")
+            return False
 
         except Exception as e:
+            # Cleanup temp file if it exists
+            if temp_path.exists():
+                temp_path.unlink()
             logger.exception(f"Error executing FFmpeg: {e}")
             return False    
 
