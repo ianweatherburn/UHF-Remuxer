@@ -1,6 +1,6 @@
 # Remux Watcher
 
-A Docker-based application that monitors a folder for .TS video files create by the UHF-Server, remuxes them to .MKV format with metadata, and updates a Plex media server.
+A Docker-based application that monitors a folder for video files create by the UHF-Server, remuxes them to .MKV format with metadata, and updates a Plex media server.
 
 ## Features
 
