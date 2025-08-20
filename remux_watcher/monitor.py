@@ -69,7 +69,7 @@ class FileMonitor:
                     
                     # Process each file
                     tasks = []
-                    for file_path in ts_files:
+                    for file_path in files:
                         tasks.append(self._process_file(file_path))
                     
                     # Wait for all processing tasks to complete

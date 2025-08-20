@@ -1,7 +1,10 @@
 services:
-  remuxer:
+  uhf-server-remux:
     build: .
-    container_name: remux-watcher
+    container_name: uhf-server-remux
+    restart: unless-stopped
+    networks:
+      - docker_default
     env_file:
       - .env
     environment:
@@ -27,3 +30,8 @@ services:
       - ${WATCH_FOLDER}:/recordings
       - ${DESTINATION_FOLDER}:/remux
       - ${DB_PATH}:/data:ro
+
+# Default Network
+networks:
+  docker_default:
+    external: true

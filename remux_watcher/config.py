@@ -24,7 +24,7 @@ class Config:
     threshold: int
     include_cancelled: bool
     language: str
-    watch_files: List[str]
+    watch_files: list[str]
     
 def load_config() -> Config:
     """Load configuration from environment variables."""

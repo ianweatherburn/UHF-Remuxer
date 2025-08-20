@@ -1,6 +1,6 @@
 # Remux Watcher
 
-A Docker-based application that monitors a folder for video files create by the UHF-Server, remuxes them to .MKV format with metadata, and updates a Plex media server.
+A Docker-based application that monitors a folder for video files created by the UHF-Server, remuxes them to .MKV format with metadata, and updates a Plex media server.
 
 ## Features
 
@@ -30,7 +30,7 @@ The following environment variables can be configured in the `.env` file:
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `WATCH_FOLDER` | Directory to monitor for media files where UHF server saves recordings | Required |
-| `WATCH_FILES` | File extensions to monitor for remuxing (comma-separatated, such as .ts,.m2t) | Optional (.ts) |
+| `WATCH_FILES` | File extensions to monitor for remuxing (comma-separated, such as ts,m2t) | Optional (ts) |
 | `DESTINATION_FOLDER` | Directory to save MKV files where Plex will pick up the remux | Required |
 | `REMUX_FILE` | The database of completed remuxes stored in the DESTINATION_FOLDER | Optional (.remux.json) |
 | `DB_PATH` | Path to the UHF server database | Required |
